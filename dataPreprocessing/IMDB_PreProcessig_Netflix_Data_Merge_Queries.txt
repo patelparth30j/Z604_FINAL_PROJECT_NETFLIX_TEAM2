@@ -1,0 +1,228 @@
+## Mongo DB Queries for imdb data processing and { netflix + imdb } data merging. 
+## AUTHORS : {PARTH PATEL, VIJAY HAREESH, PARMEET SINGH AHLUWALIA}
+
+ 
+## IMDB DATA PROCESSING 
+
+db.imdb_data.mapReduce(
+	
+	function(){
+		emit(
+			{d1 : this.title}, {name : this.name, role : this.role});},
+	
+	function (key, values){
+			var ret = {actor : " ", actress : " " , director : " "};
+			
+			return ret;
+		},
+		{
+			out : "values"
+		}
+)
+
+
+
+
+db.imdb_data.mapReduce(
+	
+	function(){
+		emit(
+			{d1 : this.title}, {name : this.name, role : this.role});},
+	
+	function (key, values){
+	
+			var ret = {actor : " ", actress : " " , director : " "};
+			for( var i = 0 ; i < values.length ; i++){
+				if(values.role == 'actor'){
+					ret.actor = ret.actor + " ," + values.name;
+				}
+				if(values.role == 'actress'){
+					ret.actress = ret.actress + " ," + values.name;
+				}
+				if(values.role == 'director'){
+					ret.director = ret.director + " ," + values.name;
+				}
+			}
+			
+			return ret;
+		},
+	
+		{
+			out : "list_values"
+		}
+)
+
+
+
+
+
+
+
+
+
+
+
+##wokring
+db.imdb_data.mapReduce(
+	
+	function(){
+		emit(
+			{d1 : this.title}, {name : this.name, role : this.role});},
+	
+	function (key, values){
+	
+			var ret = {actor : " ", actress : " " , director : " "};
+			values.forEach( function (value){
+				if(value.role == 'actor'){
+					ret.actor = ret.actor + " ," + value.name;
+				}
+				if(value.role == 'actress'){
+					ret.actress = ret.actress + " ," + value.name;
+				}
+				if(value.role == 'director'){
+					ret.director = ret.director + " ," + value.name;
+				}
+			});
+			
+			return ret;
+		},
+	
+		{
+			out : "list_values"
+		}
+)
+
+##withArray
+db.imdb_data.mapReduce(
+	
+	function(){
+		emit(
+			{title : this.title}, {name : this.name, role : this.role});},
+	
+	function (key, values){
+	
+			var ret = {actor : [], actress : [] , director : []};
+			values.forEach( function (value){
+				if(value.role == 'actor'){
+					ret.actor.push(value.name);
+				}
+				if(value.role == 'actress'){
+					ret.actress.push(value.name);
+				}
+				if(value.role == 'director'){
+					ret.director.push(value.name);
+				}
+			});
+			
+			return ret;
+		},
+	
+		{
+			out : "list_values_array"
+		}
+)
+
+
+
+
+
+## NETFLIX + IMDB DATA MERGE: 
+
+
+Iimdb_map = function() {
+ 
+  emit(this._id.title, {actor: this.value.actor, actress : this.value.actress , director : this.value.director, rating : 0});
+}
+
+netflix_map = function() {
+ 
+  emit(this.movieName, {actor: [], actress : [], director : [] , rating : this.avgRating});
+}
+
+
+r = function(key, values) {
+    var result = {actor: [], actress : [], director : [], rating : 0};
+
+    values.forEach(function(value) {
+       	
+       	if(value.actor !== null) {result.actor = value.actor;}
+       	if(value.actress !== null) {result.actress = value.actress;}
+       	if(value.director !== null) {result.director = value.director;}
+       	if(value.rating !== null) {result.rating = value.rating;}
+       	
+       
+    });
+
+    return result;
+}
+
+
+res = db.movieset.mapReduce(netflix_map, r, {out: {reduce: 'joined'}})
+
+
+res = db.list_values_array.mapReduce(imdb_map, r, {out: {reduce: 'joined'}})
+
+
+
+
+imdb_map = function() {
+ 
+  emit(this._id.title, {actor: this.value.actor, actress : this.value.actress , director : this.value.director});
+}
+
+netflix_map = function() {
+ 
+  emit(this.movieName, {rating : this.avgRating});
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+db.movieset.aggregate([
+{
+	$lookup : {
+		from : "list_values_array",
+		localField : "movieName",
+		foreignField : "_id.title",
+		as : "joined_movie"
+	}
+},
+{$out :"MovieCollection"}
+])
+
+
+
+
+db.MovieCollection.aggregate([{ $match :{"joined_movie": {$ne : []}}} ,{$out : "MergedMoviesCollection"}]);
+
+
+
+
+
+db.MovieCollection.find({"joined_movie": {$ne : []}})
+
+
+db.MergedMoviesCollection.aggregate([
+			{
+				$match : {
+						$and : [
+							{"joined_movie.value.actor": {$ne : []}},
+							{"joined_movie.value.actress": {$ne : []}},
+							{"joined_movie.value.director": {$ne : []}}
+						]
+					}
+			},
+			
+			{$out : "NotNullMergedMoviesCollection"}
+])
+	
+	
