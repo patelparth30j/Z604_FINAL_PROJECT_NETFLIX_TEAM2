@@ -1,8 +1,10 @@
-## Mongo DB Queries for imdb data processing and { netflix + imdb } data merging. 
-## AUTHORS : {PARTH PATEL, VIJAY HAREESH, PARMEET SINGH AHLUWALIA}
+## IMDB Preprocessing 
+##{ Netflix+IMDB } data merging. 
+
+## AUTHORS : {PARTH PATEL, PARMEET SINGH AHLUWALIA, VIJAY HAREESH}
 
  
-## IMDB DATA PROCESSING 
+## IMDB DATA PROCESSING CODE
 
 db.imdb_data.mapReduce(
 	
@@ -61,8 +63,7 @@ db.imdb_data.mapReduce(
 
 
 
-
-##wokring
+##Working
 db.imdb_data.mapReduce(
 	
 	function(){
