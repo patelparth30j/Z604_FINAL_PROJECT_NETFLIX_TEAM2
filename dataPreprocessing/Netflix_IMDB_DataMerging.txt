@@ -1,0 +1,99 @@
+## NETFLIX + IMDB DATA MERGE: 
+
+
+Iimdb_map = function() {
+ 
+  emit(this._id.title, {actor: this.value.actor, actress : this.value.actress , director : this.value.director, rating : 0});
+}
+
+netflix_map = function() {
+ 
+  emit(this.movieName, {actor: [], actress : [], director : [] , rating : this.avgRating});
+}
+
+
+r = function(key, values) {
+    var result = {actor: [], actress : [], director : [], rating : 0};
+
+    values.forEach(function(value) {
+       	
+       	if(value.actor !== null) {result.actor = value.actor;}
+       	if(value.actress !== null) {result.actress = value.actress;}
+       	if(value.director !== null) {result.director = value.director;}
+       	if(value.rating !== null) {result.rating = value.rating;}
+       	
+       
+    });
+
+    return result;
+}
+
+
+res = db.movieset.mapReduce(netflix_map, r, {out: {reduce: 'joined'}})
+
+
+res = db.list_values_array.mapReduce(imdb_map, r, {out: {reduce: 'joined'}})
+
+
+
+
+imdb_map = function() {
+ 
+  emit(this._id.title, {actor: this.value.actor, actress : this.value.actress , director : this.value.director});
+}
+
+netflix_map = function() {
+ 
+  emit(this.movieName, {rating : this.avgRating});
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+db.movieset.aggregate([
+{
+	$lookup : {
+		from : "list_values_array",
+		localField : "movieName",
+		foreignField : "_id.title",
+		as : "joined_movie"
+	}
+},
+{$out :"MovieCollection"}
+])
+
+
+
+
+db.MovieCollection.aggregate([{ $match :{"joined_movie": {$ne : []}}} ,{$out : "MergedMoviesCollection"}]);
+
+
+
+
+
+db.MovieCollection.find({"joined_movie": {$ne : []}})
+
+
+db.MergedMoviesCollection.aggregate([
+			{
+				$match : {
+						$and : [
+							{"joined_movie.value.actor": {$ne : []}},
+							{"joined_movie.value.actress": {$ne : []}},
+							{"joined_movie.value.director": {$ne : []}}
+						]
+					}
+			},
+			
+			{$out : "NotNullMergedMoviesCollection"}
+])
+	
